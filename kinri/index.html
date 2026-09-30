@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>住宅ローン 金利上昇 シミュレーション｜変動金利が上がると返済額はいくら？固定金利と比較</title>
+<meta name="description" content="変動金利がいつから・毎年どれくらい上がるかを設定するだけで、住宅ローンの毎月の返済額と総返済額がどう変わるかを計算。5年ルール・125%ルールと未払利息、固定金利との比較にも対応した無料シミュレーションです。">
+<link rel="canonical" href="https://harryquad.github.io/jutaku/kinri/">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<header class="site-header"><div><a href="/jutaku/">住宅ローン かんたん計算</a></div></header>
+<div class="wrap">
+  <h1>住宅ローン 金利上昇 シミュレーション</h1>
+  <p class="lead">変動金利が<strong>いつから・毎年どれくらい上がるか</strong>を設定して、<strong>毎月の返済額</strong>と<strong>総返済額</strong>がどう変わるかを計算します。<strong>固定金利</strong>で借りた場合とも比べられます。</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label for="amount">借入額</label><input type="number" id="amount" min="0" value="4000"><div class="hint">万円単位</div></div>
+      <div class="field"><label for="years">返済期間</label><input type="number" id="years" min="1" max="50" value="35"><div class="hint">年</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="rate">変動金利（今の金利）</label><input type="number" id="rate" min="0" step="0.01" value="0.9"><div class="hint">%</div></div>
+      <div class="field"><label for="fixed">比べる固定金利（任意）</label><input type="number" id="fixed" min="0" step="0.01" value="1.9"><div class="hint">%（全期間固定）</div></div>
+    </div>
+    <h2>金利上昇のシナリオ</h2>
+    <div class="row">
+      <div class="field"><label for="start">何年後から上がる</label><input type="number" id="start" min="0" max="40" value="1"></div>
+      <div class="field"><label for="step">1年ごとの上昇幅</label><input type="number" id="step" min="0" step="0.05" value="0.25"><div class="hint">%</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="cap">上昇の合計の上限</label><input type="number" id="cap" min="0" step="0.1" value="1.5"><div class="hint">%（今の金利からいくらまで上がるか）</div></div>
+      <div class="field"><label for="rule">返済額の見直しルール</label>
+        <select id="rule"><option value="5y">5年ルール・125%ルールあり（多くの銀行）</option><option value="none">金利が変わるたびに返済額を見直す</option></select></div>
+    </div>
+    <button id="calc">シミュレーションする</button>
+  </div>
+
+  <div class="card" id="result" hidden></div>
+
+  <div class="ad">広告スペース</div>
+
+  <div class="card faq">
+    <h2>金利上昇のよくある質問</h2>
+    <h3>5年ルール・125%ルールとは？</h3>
+    <p>多くの銀行の変動金利では、金利が上がっても毎月の返済額は5年間変わらず（5年ルール）、5年後に見直すときも、それまでの返済額の1.25倍までしか上がりません（125%ルール）。急に返済額が増えないしくみですが、返済額の中の利息の割合が増えるため、元金が減りにくくなります。</p>
+    <h3>未払利息とは？</h3>
+    <p>金利が大きく上がって、利息が毎月の返済額を上回ってしまうと、払いきれない利息が「未払利息」として残ります。未払利息は最後にまとめて払う必要があるので、注意が必要です。</p>
+    <h3>変動金利が上がりそうなら固定に変えるべき？</h3>
+    <p>固定金利は変動金利より高めなので、金利がどれくらい上がると固定の方が得になるかを比べて判断しましょう。今のローンを固定金利のローンに借り換える方法もあります。</p>
+  </div>
+
+  <div class="card" id="related"></div>
+
+  <footer>元利均等返済で、金利の変更は1年ごと（入力したシナリオ）として計算した概算です。実際の金利の見直し時期（半年ごと）や計算方法は金融機関によって異なります。</footer>
+</div>
+
+<script src="../assets/site.js"></script>
+<script src="../assets/calc.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// 変動金利のシミュレーション（5年ルール・125%ルール対応）
+function simulate(P, n, rateAt, rule5y) {
+  let bal = P, pay = annuity(P, rateAt(1), n), unpaid = 0, totalPaid = 0, maxPay = pay, prevRate = rateAt(1);
+  const years = [];
+  for (let m = 1; m <= n && bal > 0.5; m++) {
+    const rate = rateAt(m);
+    if (m > 1) {
+      if (rule5y) {
+        if ((m - 1) % 60 === 0) pay = Math.min(annuity(bal + unpaid, rate, n - m + 1), pay * 1.25);
+      } else if (rate !== prevRate) pay = annuity(bal, rate, n - m + 1);
+    }
+    if (m === n) pay = bal + unpaid + bal * rate / 12; // 最終回は残りをまとめて
+    prevRate = rate;
+    const interest = bal * rate / 12;
+    let toPrin = pay - interest;
+    if (toPrin < 0) { unpaid += -toPrin; toPrin = 0; }
+    else if (unpaid > 0) { const u = Math.min(unpaid, toPrin); unpaid -= u; toPrin -= u; }
+    toPrin = Math.min(toPrin, bal);
+    bal -= toPrin; totalPaid += pay;
+    if (m < n) maxPay = Math.max(maxPay, pay);
+    if (m % 12 === 1) years.push({ y: Math.ceil(m / 12), rate, pay });
+  }
+  return { first: annuity(P, rateAt(1), n), maxPay, totalPaid, unpaid, years };
+}
+
+function calc() {
+  const out = $("result");
+  out.hidden = false;
+  const P = num("amount") * MAN, n = Math.round(num("years") * 12);
+  if (!P || !n) { out.innerHTML = '<p class="err">借入額と返済期間を入力してください。</p>'; return; }
+  const base = num("rate") / 100, start = num("start"), step = num("step") / 100, cap = num("cap") / 100;
+  const rateAt = m => { const y = Math.floor((m - 1) / 12); return base + Math.min(cap, Math.max(0, y - start + 1) * step); };
+  const rule5y = $("rule").value === "5y";
+  const v = simulate(P, n, rateAt, rule5y);
+  const flat = simulate(P, n, () => base, false);
+  const fixedRate = $("fixed").value === "" ? null : num("fixed") / 100;
+  const fx = fixedRate === null ? null : simulate(P, n, () => fixedRate, false);
+  const shown = v.years.filter(x => x.y === 1 || x.y % 5 === 1 || x.y === Math.ceil(start) + 1);
+
+  out.innerHTML = `
+    <div class="big">
+      <div class="stat"><div class="k">今の毎月の返済額</div><div class="v">${yen(v.first)}</div></div>
+      <div class="stat warn"><div class="k">いちばん高くなる毎月の返済額</div><div class="v">${yen(v.maxPay)}</div></div>
+      <div class="stat warn"><div class="k">金利が上がらない場合より増える総額</div><div class="v">${man(v.totalPaid - flat.totalPaid)}</div></div>
+    </div>
+    <table class="info">
+      <tr><th></th><th class="num">総返済額</th><th class="num">利息の総額</th></tr>
+      <tr><td>変動金利（金利が上がらない場合）</td><td class="num">${man(flat.totalPaid)}</td><td class="num">${man(flat.totalPaid - P)}</td></tr>
+      <tr><td>変動金利（このシナリオ）</td><td class="num">${man(v.totalPaid)}</td><td class="num">${man(v.totalPaid - P)}</td></tr>
+      ${fx ? `<tr><td>固定金利 ${num("fixed")}%</td><td class="num">${man(fx.totalPaid)}</td><td class="num">${man(fx.totalPaid - P)}</td></tr>` : ""}
+    </table>
+    ${fx ? `<p class="note">このシナリオでは、<strong>${v.totalPaid < fx.totalPaid ? "変動金利" : "固定金利"}</strong>の方が総返済額が ${man(Math.abs(v.totalPaid - fx.totalPaid))} 少なくなります。</p>` : ""}
+    ${rule5y ? '<p class="note">5年ルール・125%ルールでは、金利が上がってもすぐに返済額は増えません。そのかわり元金の減り方が遅くなり、最終回にまとめて払う額が出ることがあります（上の総額に含めています）。</p>' : ""}
+    <h2 style="margin-top:16px">金利と毎月の返済額の推移</h2>
+    <table class="info"><tr><th>年</th><th class="num">金利</th><th class="num">毎月の返済額</th></tr>
+      ${shown.map(x => `<tr><td>${x.y}年目</td><td class="num">${(x.rate * 100).toFixed(2)}%</td><td class="num">${yen(x.pay)}</td></tr>`).join("")}</table>
+    <p class="note">金利の低いローンへの借り換えで総額を減らせるか確認するなら → <a href="/jutaku/karikae/">借り換え 計算</a></p>`;
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("calc").addEventListener("click", calc);
+</script>
+</body>
+</html>

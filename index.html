@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>住宅ローン 返済シミュレーション｜毎月の返済額・利息の総額・残高（元利均等・元金均等）</title>
+<meta name="description" content="借入額・金利・返済期間を入れるだけで、住宅ローンの毎月の返済額、利息の総額、年ごとの残高を計算。元利均等返済と元金均等返済の比較もできる無料シミュレーションです。">
+<link rel="canonical" href="https://harryquad.github.io/jutaku/">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site-header"><div><a href="/jutaku/">住宅ローン かんたん計算</a></div></header>
+<div class="wrap">
+  <h1>住宅ローン 返済シミュレーション</h1>
+  <p class="lead">借入額・金利・返済期間から、<strong>毎月の返済額</strong>・<strong>利息の総額</strong>・<strong>年ごとの残高</strong>を計算します。元利均等返済と元金均等返済の違いも比べられます。</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label for="amount">借入額</label><input type="number" id="amount" min="0" value="4000"><div class="hint">万円単位</div></div>
+      <div class="field"><label for="rate">金利（年）</label><input type="number" id="rate" min="0" step="0.01" value="0.9"><div class="hint">%</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="years">返済期間</label><input type="number" id="years" min="1" max="50" value="35"><div class="hint">年</div></div>
+      <div class="field"><label for="type">返済方法</label>
+        <select id="type"><option value="annuity">元利均等返済（毎月の返済額が一定）</option><option value="equal">元金均等返済（はじめ多く、だんだん減る）</option></select></div>
+    </div>
+    <button id="calc">計算する</button>
+  </div>
+
+  <div class="card" id="result" hidden></div>
+
+  <div class="ad">広告スペース</div>
+
+  <div class="card faq">
+    <h2>住宅ローンの返済のよくある質問</h2>
+    <h3>元利均等返済と元金均等返済の違いは？</h3>
+    <p>元利均等返済は、毎月の返済額（元金＋利息）が一定で、家計の計画が立てやすい方法です。元金均等返済は、毎月返す元金が一定なので、はじめの返済額が多く、だんだん減っていきます。利息の総額は元金均等返済の方が少なくなりますが、はじめの負担が重くなります。</p>
+    <h3>金利が0.1%違うとどれくらい変わる？</h3>
+    <p>4,000万円を35年で借りる場合、金利が0.1%上がると、利息の総額はおよそ70〜80万円増えます。金利の低いローンを選ぶことや、借り換えで金利を下げることの効果は大きいです。</p>
+    <h3>変動金利と固定金利、どちらがいい？</h3>
+    <p>変動金利は今の金利が低い一方、将来上がる可能性があります。固定金利は金利が高めですが、完済まで返済額が変わりません。金利が上がった場合の返済額を確認してから選ぶと安心です。</p>
+  </div>
+
+  <div class="card" id="related"></div>
+
+  <footer>毎月の返済額は元利均等（または元金均等）で計算した目安です（ボーナス払い・保証料・団体信用生命保険の上乗せ金利などは含みません）。金融機関の計算方法によって数円ずれることがあります。</footer>
+</div>
+
+<script src="assets/site.js"></script>
+<script src="assets/calc.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+function calc() {
+  const out = $("result");
+  out.hidden = false;
+  const P = num("amount") * MAN, rate = num("rate") / 100, n = Math.round(num("years") * 12);
+  if (!P || !n) { out.innerHTML = '<p class="err">借入額と返済期間を入力してください。</p>'; return; }
+  const type = $("type").value;
+  const rows = schedule({ principal: P, rate, months: n, type });
+  const other = schedule({ principal: P, rate, months: n, type: type === "annuity" ? "equal" : "annuity" });
+  const interest = sum(rows, "interest"), otherInterest = sum(other, "interest");
+  const years = [];
+  for (let y = 1; y * 12 <= rows.length || (y - 1) * 12 < rows.length; y++) {
+    const part = rows.slice((y - 1) * 12, y * 12);
+    if (!part.length) break;
+    if (y <= 5 || y % 5 === 0 || y * 12 >= rows.length) years.push([y, sum(part, "pay"), part[part.length - 1].balance]);
+  }
+
+  out.innerHTML = `
+    <div class="big">
+      <div class="stat warn"><div class="k">毎月の返済額${type === "equal" ? "（1回目）" : ""}</div><div class="v">${yen(rows[0].pay)}</div></div>
+      <div class="stat"><div class="k">利息の総額</div><div class="v">${man(interest)}</div></div>
+      <div class="stat"><div class="k">返済の総額</div><div class="v">${man(P + interest)}</div></div>
+    </div>
+    <table class="info">
+      <tr><td>${type === "equal" ? "最終回の返済額" : "年間の返済額"}</td><td class="num">${type === "equal" ? yen(rows[rows.length - 1].pay) : yen(rows[0].pay * 12)}</td></tr>
+      <tr><td>${type === "annuity" ? "元金均等返済" : "元利均等返済"}にした場合の利息の総額</td><td class="num">${man(otherInterest)}（${otherInterest < interest ? "−" : "+"}${man(Math.abs(otherInterest - interest))}）</td></tr>
+    </table>
+    <h2 style="margin-top:16px">年ごとの返済額と残高</h2>
+    <table class="info"><tr><th>年</th><th class="num">その年の返済額</th><th class="num">年末の残高</th></tr>
+      ${years.map(([y, p, b]) => `<tr><td>${y}年目</td><td class="num">${yen(p)}</td><td class="num">${man(b)}</td></tr>`).join("")}</table>
+    <p class="note">この借入で住宅ローン控除がいくら受けられるかは → <a href="/jutaku/koujo/">住宅ローン控除 計算</a> ／ 変動金利が上がった場合は → <a href="/jutaku/kinri/">金利上昇 シミュレーション</a></p>`;
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("calc").addEventListener("click", calc);
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>住宅ローン 借り換え シミュレーション｜諸費用を引いても得？いくら得する？</title>
+<meta name="description" content="今のローン残高・残りの期間・金利と、借り換え先の金利・諸費用を入れるだけで、住宅ローンを借り換えるといくら得するか（諸費用込み）を計算。毎月の返済額の変化と、得になる金利差の目安もわかる無料ツールです。">
+<link rel="canonical" href="https://harryquad.github.io/jutaku/karikae/">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<header class="site-header"><div><a href="/jutaku/">住宅ローン かんたん計算</a></div></header>
+<div class="wrap">
+  <h1>住宅ローン 借り換え シミュレーション</h1>
+  <p class="lead">今のローンと借り換え先の条件から、<strong>借り換えの諸費用を差し引いても得になるか</strong>、<strong>いくら得するか</strong>を計算します。</p>
+
+  <div class="card">
+    <h2>今のローン</h2>
+    <div class="row">
+      <div class="field"><label for="bal">ローン残高</label><input type="number" id="bal" min="0" value="3000"><div class="hint">万円単位</div></div>
+      <div class="field"><label for="left">残りの返済期間</label><input type="number" id="left" min="1" max="50" value="25"><div class="hint">年</div></div>
+    </div>
+    <div class="field"><label for="rateNow">今の金利（年）</label><input type="number" id="rateNow" min="0" step="0.01" value="1.5"><div class="hint">%</div></div>
+    <h2>借り換え先</h2>
+    <div class="row">
+      <div class="field"><label for="rateNew">借り換え後の金利（年）</label><input type="number" id="rateNew" min="0" step="0.01" value="0.8"><div class="hint">%</div></div>
+      <div class="field"><label for="yearsNew">借り換え後の返済期間</label><input type="number" id="yearsNew" min="1" max="50" value="25"><div class="hint">年（ふつうは今の残り期間と同じ）</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="feeRate">事務手数料（借入額の何％）</label><input type="number" id="feeRate" min="0" step="0.1" value="2.2"><div class="hint">%。定額型なら0にして下の欄へ</div></div>
+      <div class="field"><label for="feeFix">そのほかの諸費用</label><input type="number" id="feeFix" min="0" value="25"><div class="hint">万円単位。登記費用・司法書士報酬・印紙代・今のローンの繰上げ返済手数料など</div></div>
+    </div>
+    <button id="calc">計算する</button>
+  </div>
+
+  <div class="card" id="result" hidden></div>
+
+  <div class="ad">広告スペース</div>
+
+  <div class="card faq">
+    <h2>借り換えのよくある質問</h2>
+    <h3>どれくらい金利が下がれば借り換えが得？</h3>
+    <p>よく「残高1,000万円以上、残り期間10年以上、金利差1%以上」が目安と言われますが、今は諸費用の安い銀行も多く、金利差0.3〜0.5%程度でも得になることがあります。このツールで諸費用込みの損得を確認しましょう。</p>
+    <h3>借り換えの諸費用はいくら？</h3>
+    <p>一般的に、借入額の2〜3%程度が目安です。内訳は、事務手数料（借入額の2.2%など、または定額）、抵当権の設定・抹消の登記費用と司法書士報酬、ローン契約書の印紙代などです。</p>
+    <h3>住宅ローン控除を受けている途中でも借り換えできる？</h3>
+    <p>できます。借り換え後も、新しいローンが元のローンの返済のためのもので、返済期間が10年以上などの条件を満たせば、残りの期間は控除が続きます。ただし、控除の対象になるのは借り換え直前の残高までです。</p>
+  </div>
+
+  <div class="card" id="related"></div>
+
+  <footer>元利均等返済で計算した概算です。団体信用生命保険の特約や保証料の扱いは金融機関によって異なります。</footer>
+</div>
+
+<script src="../assets/site.js"></script>
+<script src="../assets/calc.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+function totalPay(P, rate, months) { return annuity(P, rate, months) * months; }
+function calc() {
+  const out = $("result");
+  out.hidden = false;
+  const P = num("bal") * MAN, nNow = Math.round(num("left") * 12), nNew = Math.round(num("yearsNew") * 12);
+  if (!P || !nNow || !nNew) { out.innerHTML = '<p class="err">残高と期間を入力してください。</p>'; return; }
+  const rNow = num("rateNow") / 100, rNew = num("rateNew") / 100;
+  const fees = P * num("feeRate") / 100 + num("feeFix") * MAN;
+  const mNow = annuity(P, rNow, nNow), mNew = annuity(P, rNew, nNew);
+  const payNow = mNow * nNow, payNew = mNew * nNew;
+  const gain = payNow - payNew - fees;
+  // 得になる金利の上限（損益分岐）を二分探索
+  let lo = 0, hi = rNow;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (payNow - totalPay(P, mid, nNew) - fees > 0) lo = mid; else hi = mid; }
+
+  out.innerHTML = `
+    <div class="big">
+      <div class="stat ${gain > 0 ? "good" : "warn"}"><div class="k">借り換えで${gain > 0 ? "得する額" : "損する額"}（諸費用込み）</div><div class="v">${man(Math.abs(gain))}</div></div>
+      <div class="stat"><div class="k">毎月の返済額</div><div class="v">${yen(mNow)} → ${yen(mNew)}</div></div>
+      <div class="stat"><div class="k">諸費用の合計</div><div class="v">${man(fees)}</div></div>
+    </div>
+    <table class="info">
+      <tr><th></th><th class="num">今のまま</th><th class="num">借り換え後</th></tr>
+      <tr><td>金利</td><td class="num">${num("rateNow")}%</td><td class="num">${num("rateNew")}%</td></tr>
+      <tr><td>毎月の返済額</td><td class="num">${yen(mNow)}</td><td class="num">${yen(mNew)}</td></tr>
+      <tr><td>残りの返済総額</td><td class="num">${man(payNow)}</td><td class="num">${man(payNew)}</td></tr>
+      <tr><td>諸費用</td><td class="num">0円</td><td class="num">${man(fees)}</td></tr>
+      <tr><td><strong>合計</strong></td><td class="num"><strong>${man(payNow)}</strong></td><td class="num"><strong>${man(payNew + fees)}</strong></td></tr>
+    </table>
+    <p class="note">この諸費用なら、借り換え後の金利が <strong>年${(lo * 100).toFixed(2)}%より低ければ得</strong>になる計算です。${nNew !== nNow ? " 返済期間を変えているため、毎月の返済額と総額の両方を見て判断してください。" : ""}</p>
+    <p class="note">金利は銀行によって大きく違います。複数の銀行の金利と諸費用を比べると、得する額がさらに増えることがあります。</p>`;
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("calc").addEventListener("click", calc);
+</script>
+</body>
+</html>
